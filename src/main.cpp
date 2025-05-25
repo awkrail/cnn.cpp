@@ -1,8 +1,4 @@
 #include "image_utils.h"
-
-#include <opencv2/core/mat.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
 #include <iostream>
 
 int main(int argc, char * argv[]) {
@@ -17,11 +13,8 @@ int main(int argc, char * argv[]) {
   /* image preprocessing */
   if (!image_preprocess(image)) {
     fprintf(stderr, "%s: Failed to image_preprocess, Abort.\n", __func__);
-
+    return 1;
   }
-  
-  
-
 
   return 0;
 }

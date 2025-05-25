@@ -29,12 +29,33 @@ void crop_margin(cv::Mat & image) {
   image = cv::Mat(image, rect);
 }
 
+void padding_image(cv::Mat & image) {
+  // https://github.com/facebookresearch/nougat/blob/5a92920d342fb6acf05fc9b594ccb4053dbe8e7a/nougat/model.py#L172
+  const int max_size = 672;
+  const int width = image.cols;
+  const int height = image.rows;
+
+  int resized_width;
+  int resized_height;
+  if (width > height) {
+    resized_width = max_size;
+    resized_height = static_cast<int>((static_cast<float>(height) / width) * resized_width);
+  } else {
+    resized_width = max_size;
+    resized_height = static_cast<int>((static_cast<float>(width) / height) * resized_height);
+  }
+  cv::resize(image, image, cv::Size(resized_width, resized_height));
+
+
+}
+
 bool image_preprocess(cv::Mat & image) {
   crop_margin(image);
-
-  cv::imwrite("./cropped.png", image);
-
-
+  if (image.rows == 0 || image.cols == 0) {
+    fprintf("%s: The rows or cols of extracted image is 0. image.rows = %d, image.cols = %d.\n", __func__, image.rows, image.cols);
+    return false;
+  }
+  padding_image(image);
   return true;
 }
 
