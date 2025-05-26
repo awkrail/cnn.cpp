@@ -29,33 +29,44 @@ void crop_margin(cv::Mat & image) {
   image = cv::Mat(image, rect);
 }
 
-void padding_image(cv::Mat & image) {
+cv::Mat padding_image(const cv::Mat & image) {
+  /* resized an image while keeping the aspect ratio */
   // https://github.com/facebookresearch/nougat/blob/5a92920d342fb6acf05fc9b594ccb4053dbe8e7a/nougat/model.py#L172
-  const int max_size = 672;
+  constexpr int input_size[] = { 672, 896 }; // width, height
+  constexpr int min_size = std::min(input_size[0], input_size[1]);
   const int width = image.cols;
   const int height = image.rows;
 
   int resized_width;
   int resized_height;
-  if (width > height) {
-    resized_width = max_size;
-    resized_height = static_cast<int>((static_cast<float>(height) / width) * resized_width);
+  if (width < height) {
+    resized_width = min_size;
+    resized_height = static_cast<int>((static_cast<float>(height) / width) * min_size);
   } else {
-    resized_width = max_size;
-    resized_height = static_cast<int>((static_cast<float>(width) / height) * resized_height);
+    resized_height = min_size;
+    resized_width = static_cast<int>((static_cast<float>(width) / height) * min_size);
   }
-  cv::resize(image, image, cv::Size(resized_width, resized_height));
 
-
+  cv::Mat resized_image;
+  cv::resize(image, resized_image, cv::Size(resized_width, resized_height), 0, 0, cv::INTER_LINEAR);
+  
+  /* create canvas and put an image on it */
+  const int delta_width = (input_size[0] - resized_image.cols) / 2;
+  const int delta_height = (input_size[1] - resized_image.rows) / 2;
+  cv::Mat canvas(input_size[1], input_size[0], image.type(), cv::Scalar(0, 0, 0));
+  resized_image.copyTo(canvas(cv::Rect(delta_width, delta_height, resized_image.cols, resized_image.rows)));
+  return canvas;
 }
 
 bool image_preprocess(cv::Mat & image) {
   crop_margin(image);
   if (image.rows == 0 || image.cols == 0) {
-    fprintf("%s: The rows or cols of extracted image is 0. image.rows = %d, image.cols = %d.\n", __func__, image.rows, image.cols);
+    fprintf(stderr, "%s: The rows or cols of extracted image is 0. image.rows = %d, image.cols = %d.\n", __func__, image.rows, image.cols);
     return false;
   }
-  padding_image(image);
+  image = padding_image(image);
+  cv::imwrite("./padded.png", image);
+
   return true;
 }
 
