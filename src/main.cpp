@@ -11,7 +11,8 @@ int main(int argc, char * argv[]) {
   }
 
   /* image preprocessing */
-  if (!image_preprocess(image)) {
+  std::vector<float> chw;
+  if (!image_preprocess(image, chw)) {
     fprintf(stderr, "%s: Failed to image_preprocess, Abort.\n", __func__);
     return 1;
   }

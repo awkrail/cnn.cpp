@@ -7,7 +7,6 @@
 
 bool image_load(const char * filename, cv::Mat & image);
 
-bool image_preprocess(cv::Mat & image);
-
+bool image_preprocess(cv::Mat & image, std::vector<float> & chw);
 
 #endif

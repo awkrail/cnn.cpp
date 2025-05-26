@@ -1,22 +1,13 @@
 #include "image_utils.h"
 
-bool image_load(const char * filename, cv::Mat & image) {
-  image = cv::imread(filename);
-  if (image.empty()) {
-    fprintf(stderr, "%s: Unable to load image.\n", __func__);
-    return false;
-  }
-  return true;
-}
-
-void crop_margin(cv::Mat & image) {
+static cv::Mat crop_margin(const cv::Mat & image) {
   cv::Mat gray;
   cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
 
   double min_val;
   double max_val;
   cv::minMaxLoc(gray, &min_val, &max_val, nullptr, nullptr);
-  if (min_val == max_val) return;
+  if (min_val == max_val) return image;
 
   cv::Mat normalized = (gray - min_val) / (max_val - min_val) * 255;
   cv::Mat binarized;
@@ -26,10 +17,10 @@ void crop_margin(cv::Mat & image) {
   cv::findNonZero(binarized, coords);
   cv::Rect rect = cv::boundingRect(coords);
   
-  image = cv::Mat(image, rect);
+  return cv::Mat(image, rect);
 }
 
-cv::Mat padding_image(const cv::Mat & image) {
+static cv::Mat padding_image(const cv::Mat & image) {
   /* resized an image while keeping the aspect ratio */
   // https://github.com/facebookresearch/nougat/blob/5a92920d342fb6acf05fc9b594ccb4053dbe8e7a/nougat/model.py#L172
   constexpr int input_size[] = { 672, 896 }; // width, height
@@ -58,15 +49,50 @@ cv::Mat padding_image(const cv::Mat & image) {
   return canvas;
 }
 
-bool image_preprocess(cv::Mat & image) {
-  crop_margin(image);
+static cv::Mat normalize(const cv::Mat & image) {
+  cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
+  cv::Mat normalized;
+  image.convertTo(normalized, CV_32FC3, 1.0 / 255);
+
+  std::vector<cv::Mat> channels(3);
+  cv::split(normalized, channels);
+
+  const std::vector<float> mean = {0.485, 0.456, 0.406};
+  const std::vector<float> stds = {0.229, 0.224, 0.225};
+
+  for (int c = 0; c < 3; c++)
+    channels[c] = (channels[c] - mean[c]) / stds[c];
+
+  cv::merge(channels, normalized);
+  return normalized;
+}
+
+bool image_load(const char * filename, cv::Mat & image) {
+  image = cv::imread(filename);
+  if (image.empty()) {
+    fprintf(stderr, "%s: Unable to load image.\n", __func__);
+    return false;
+  }
+  return true;
+}
+
+bool image_preprocess(cv::Mat & image, std::vector<float> & chw) {
+  image = crop_margin(image);
   if (image.rows == 0 || image.cols == 0) {
     fprintf(stderr, "%s: The rows or cols of extracted image is 0. image.rows = %d, image.cols = %d.\n", __func__, image.rows, image.cols);
     return false;
   }
   image = padding_image(image);
-  cv::imwrite("./padded.png", image);
+  image = normalize(image);
+  
+  /* TODO: loop unrolling */
+  for (int c = 0; c < 3; c++) {
+    for (int i = 0; i < image.rows; i++) {
+      for (int j = 0; j < image.cols; j++) {
+        chw.push_back(image.at<cv::Vec3f>(i, j)[c]);
+      }
+    }
+  }
 
   return true;
 }
-
